@@ -1,0 +1,76 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: banking-ci
+          MYSQL_DATABASE: banking_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pbanking-ci"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Run backend tests
+        env:
+          DB_URL: jdbc:mysql://127.0.0.1:3306/banking_db?useSSL=false&serverTimezone=UTC
+          DB_USERNAME: root
+          DB_PASSWORD: banking-ci
+          JWT_SECRET: ci-only-secret-with-at-least-32-characters
+          ALLOWED_ORIGIN: http://localhost:5173
+        run: ./mvnw -B clean test
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: banking-frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: banking-frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: banking-frontend
+        run: npm run build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: banking-frontend-dist
+          path: banking-frontend/dist
+          if-no-files-found: error

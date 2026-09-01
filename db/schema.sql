@@ -1,0 +1,40 @@
+CREATE DATABASE IF NOT EXISTS banking_db;
+USE banking_db;
+
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('USER', 'ADMIN', 'SUPER_ADMIN') NOT NULL,
+    locked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by BIGINT,
+    transfer_pin VARCHAR(255)
+);
+
+CREATE TABLE IF NOT EXISTS accounts (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_number VARCHAR(36) NOT NULL UNIQUE,
+    balance DECIMAL(19, 4) NOT NULL DEFAULT 0,
+    account_type VARCHAR(20),
+    user_id BIGINT NOT NULL,
+    frozen BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT fk_accounts_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS transactions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id BIGINT NOT NULL,
+    amount DECIMAL(19, 4) NOT NULL,
+    transaction_type ENUM('CREDIT', 'DEBIT', 'TRANSFER', 'ADMIN_ADJUSTMENT'),
+    transaction_date DATETIME NOT NULL,
+    CONSTRAINT fk_transactions_account FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+
+-- Existing databases can apply these additions before restarting the app.
+ALTER TABLE users MODIFY COLUMN role ENUM('USER', 'ADMIN', 'SUPER_ADMIN') NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS locked BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by BIGINT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS transfer_pin VARCHAR(255);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS frozen BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE transactions MODIFY COLUMN transaction_type ENUM('CREDIT', 'DEBIT', 'TRANSFER', 'ADMIN_ADJUSTMENT');

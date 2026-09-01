@@ -1,0 +1,54 @@
+name: Package Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package application artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build backend package
+        env:
+          JWT_SECRET: ci-only-secret-with-at-least-32-characters
+        run: ./mvnw -B clean package -DskipTests
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: banking-frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: banking-frontend
+        run: npm ci
+
+      - name: Build frontend package
+        working-directory: banking-frontend
+        run: npm run build
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: banking-system-${{ github.ref_name }}
+          path: |
+            target/*.jar
+            banking-frontend/dist/**
+          if-no-files-found: error
